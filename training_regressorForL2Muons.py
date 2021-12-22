@@ -6,6 +6,7 @@ import uproot
 import numpy as np
 import pandas as pd
 import pickle
+import json
 from sklearn.metrics import mean_squared_error
 #from sklearn.cross_validation import train_test_split
 from sklearn.model_selection import train_test_split
@@ -31,13 +32,13 @@ import cmsml
 from sklearn.preprocessing import StandardScaler
 from tensorflow.keras import regularizers
 #tensorflow.config.experimental_run_functions_eagerly(True)
-opt = tensorflow.keras.optimizers.Adam(learning_rate=0.0001)
+opt = tensorflow.keras.optimizers.Adam(learning_rate=0.000001)
 #opt = Adam(learning_rate=0.0001)
 #opt = tensorflow.keras.optimizers.Adam(learning_rate=0.128)
 output_path = './'
 
-input_branches = [
-'ST_layerID1', 'ST_globalR1', 'ST_globalZ1', 'ST_phi1', 'ST_deltaDir1', 'ST_deltaPhi1','ST_layerID2','ST_globalR2', 'ST_globalZ2', 'ST_phi2', 'ST_deltaDir2', 'ST_deltaPhi2','ST_layerID3','ST_globalR3', 'ST_globalZ3', 'ST_phi3', 'ST_deltaDir3', 'ST_deltaPhi3','ST_layerID4','ST_globalR4', 'ST_globalZ4', 'ST_phi4', 'ST_deltaDir4', 'ST_deltaPhi4'
+input_branches = [ 'Muon_L2_deltaPhiFirstLast','Muon_L2_deltaDirFirstLast',
+'ST_layerID1', 'ST_globalR1', 'ST_globalZ1', 'ST_phi1', 'ST_deltaDir1', 'ST_deltaPhi1','ST_layerID2','ST_globalR2', 'ST_globalZ2', 'ST_phi2', 'ST_deltaDir2', 'ST_deltaPhi2','ST_layerID3','ST_globalR3', 'ST_globalZ3', 'ST_phi3', 'ST_deltaDir3', 'ST_deltaPhi3','ST_layerID4','ST_globalR4', 'ST_globalZ4', 'ST_phi4'
 ]
 
 df = pd.read_csv("data/L2Segments_preprocessed.csv")
@@ -64,12 +65,50 @@ def plot_loss(history, label, out_path):
 
 
 
+inputRanges = {}
+
 for i in input_branches:
     print(i)
     print(df[i].max())
     print(df[i].min())
     print(df[i].mean())
     print(df[i].std())
+
+    inputRanges[i] = {}
+    inputRanges[i]["mean"] = df[i].mean()
+    inputRanges[i]["std"] = df[i].std()
+    inputRanges[i]["min"] = df[i].min()
+    inputRanges[i]["max"] = df[i].max()
+
+
+print (inputRanges)
+outfile = open("inputRanges.json",'w')
+json.dump(inputRanges,outfile)
+outfile.close()
+
+
+outputRanges = {}
+
+for i in truth_columns:
+    print(i)
+    print(df[i].max())
+    print(df[i].min())
+    print(df[i].mean())
+    print(df[i].std())
+
+    outputRanges[i] = {}
+    outputRanges[i]["mean"] = df[i].mean()
+    outputRanges[i]["std"] = df[i].std()
+    outputRanges[i]["min"] = df[i].min()
+    outputRanges[i]["max"] = df[i].max()
+
+
+print (outputRanges)
+outfile = open("outputRanges.json",'w')
+json.dump(outputRanges,outfile)
+outfile.close()
+
+
 
 for c in prediction_columns:
     df[c] = -1
@@ -83,21 +122,24 @@ print(y)
 
 from pickle import dump
 
-scaler = StandardScaler()
-# fit scaler on data
-scaler.fit(x)
-# save the scaler
-dump(scaler, open(output_path+'scalerInput.pkl', 'wb'))
-# apply transform
-x = scaler.transform(x)
+scale=True
 
-outscaler = StandardScaler()
-# fit scaler on data
-outscaler.fit(y)
-# save the scaler
-dump(outscaler, open(output_path+'scalerOutput.pkl', 'wb'))
-# apply transform
-y = outscaler.transform(y)
+if scale:
+	scaler = StandardScaler()
+	# fit scaler on data
+	scaler.fit(x)
+	# save the scaler
+	dump(scaler, open(output_path+'scalerInput.pkl', 'wb'))
+	# apply transform
+	x = scaler.transform(x)
+
+	outscaler = StandardScaler()
+	# fit scaler on data
+	outscaler.fit(y)
+	# save the scaler
+	dump(outscaler, open(output_path+'scalerOutput.pkl', 'wb'))
+	# apply transform
+	y = outscaler.transform(y)
 x_train,x_test,y_train,y_test=train_test_split(x,y,test_size=.20,random_state=5)
 print(x_train)
 print(y_train)
@@ -157,6 +199,11 @@ history = dnn.fit(
     validation_data=(x_test, y_test),
     shuffle=True
 )
+
+#print ([node.op.name for node in Model.outputs])
+
+
+
 if save:       
     save_path = f"{label}_full_dataset.pb"
     model_path = f"{label}_L2RegressorModel_training_plots_4layers_lr_0p0001_mse_epochs100"
